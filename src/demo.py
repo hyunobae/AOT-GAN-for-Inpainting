@@ -9,6 +9,7 @@ from torchvision.transforms import ToTensor
 
 from utils.option import args
 from utils.painter import Sketcher
+from PIL import Image
 
 
 
@@ -25,24 +26,24 @@ def demo(args):
     # load images 
     img_list = []
     for ext in ['*.jpg', '*.png']: 
-        img_list.extend(glob(os.path.join(args.dir_image, ext)))
+        img_list.extend(glob(os.path.join("images", ext)))
     img_list.sort()
 
     # Model and version
     net = importlib.import_module('model.'+args.model)
     model = net.InpaintGenerator(args)
-    model.load_state_dict(torch.load(args.pre_train, map_location='cpu'))
+    model.load_state_dict(torch.load("../experiments/G0000000.pt", map_location='cpu'))
     model.eval()
 
     for fn in img_list:
         filename = os.path.basename(fn).split('.')[0]
-        orig_img = cv2.resize(cv2.imread(fn, cv2.IMREAD_COLOR), (512, 512))
+        orig_img = cv2.imread(fn, cv2.IMREAD_COLOR)
         img_tensor = (ToTensor()(orig_img) * 2.0 - 1.0).unsqueeze(0)
         h, w, c = orig_img.shape
         mask = np.zeros([h, w, 1], np.uint8)
         image_copy = orig_img.copy()
         sketch = Sketcher(
-            'input', [image_copy, mask], lambda: ((255, 255, 255), (255, 255, 255)), args.thick, args.painter)
+            'input', [image_copy, mask], lambda: ((255, 255, 255), (255, 255, 255)), args.thick, "freeform")
 
         while True:
             ch = cv2.waitKey()
@@ -53,9 +54,19 @@ def demo(args):
             # inpaint by deep model
             elif ch == ord(' '):
                 print('[**] inpainting ... ')
+                print(f"{mask.shape}")
+
+                # m = Image.fromarray(mask)
+                # m.save('mask.png')
                 with torch.no_grad():
+                    print(f"mask info: {type(mask), mask.shape}")
+                    mask = mask.squeeze()
+                    tt = Image.fromarray(mask)
+                    tt.save('mask.png')
+                    exit()
                     mask_tensor = (ToTensor()(mask)).unsqueeze(0)
                     masked_tensor = (img_tensor * (1 - mask_tensor).float()) + mask_tensor
+
                     pred_tensor = model(masked_tensor, mask_tensor)
                     comp_tensor = (pred_tensor * mask_tensor + img_tensor * (1 - mask_tensor))
 
@@ -64,6 +75,8 @@ def demo(args):
                     comp_np = postprocess(comp_tensor[0])
 
                     cv2.imshow('pred_images', comp_np)
+                    im = Image.fromarray(comp_np)
+                    im.save(f"{filename}_inpainted.png")
                     print('inpainting finish!')
             
             # reset mask

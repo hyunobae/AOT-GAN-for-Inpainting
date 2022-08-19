@@ -23,7 +23,8 @@ def postprocess(image):
 
 
 def demo(args):
-    # load images 
+    # load images
+    result_dir = 'result'
     img_list = []
     for ext in ['*.jpg', '*.png']: 
         img_list.extend(glob(os.path.join("images", ext)))
@@ -32,6 +33,7 @@ def demo(args):
     mask_list = []
     for ext in ['*.jpg', '*.png']:
         mask_list.extend(glob(os.path.join("mask", ext)))
+    mask_list.sort()
 
     # Model and version
     net = importlib.import_module('model.'+args.model)
@@ -45,28 +47,24 @@ def demo(args):
         img_tensor = (ToTensor()(orig_img) * 2.0 - 1.0).unsqueeze(0)
         h, w, c = orig_img.shape
         mask = np.zeros([h, w, 1], np.uint8)
+        print(filename, mk)
+        print('[**] inpainting ... ')
 
-        while True:
-            print('[**] inpainting ... ')
-            print(f"{mask.shape}")
+        with torch.no_grad():
+            mask = Image.open(mk).convert('L')
+            mask_tensor = (ToTensor()(mask)).unsqueeze(0)
+            masked_tensor = (img_tensor * (1 - mask_tensor).float()) + mask_tensor
+            # print(f"mask info: {masked_tensor.shape}")
+            # print(f"image info: {img_tensor.shape}")
 
-            with torch.no_grad():
-                print(f"mask info: {type(mask), mask.shape}")
-                mname = os.path.basename(mk).split('.')[0]
-                mask = Image.open(mname)
-                mask_tensor = (ToTensor()(mask)).unsqueeze(0)
-                masked_tensor = (img_tensor * (1 - mask_tensor).float()) + mask_tensor
+            pred_tensor = model(masked_tensor, mask_tensor)
+            # print(f"pred tensor: {pred_tensor.shape}")
+            comp_tensor = (pred_tensor * mask_tensor + img_tensor * (1 - mask_tensor))
+            comp_np = postprocess(comp_tensor[0])
 
-                pred_tensor = model(masked_tensor, mask_tensor)
-                comp_tensor = (pred_tensor * mask_tensor + img_tensor * (1 - mask_tensor))
-
-                pred_np = postprocess(pred_tensor[0])
-                masked_np = postprocess(masked_tensor[0])
-                comp_np = postprocess(comp_tensor[0])
-
-                cv2.imwrite(filename+"_inpainted.png", comp_np)
-                print('inpainting finish!')
-                print('[**] save successfully!')
+            cv2.imwrite(result_dir+'/'+filename+"_inpainted.png", comp_np)
+            print('inpainting finish!')
+            print('[**] save successfully!')
 
 
 if __name__ == '__main__':

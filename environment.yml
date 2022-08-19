@@ -1,4 +1,4 @@
-name: inpainting
+name: inpainting-2
 channels:
   - pytorch
   - defaults

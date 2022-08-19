@@ -3,9 +3,9 @@ import argparse
 parser = argparse.ArgumentParser(description='Image Inpainting')
 
 # data specifications 
-parser.add_argument('--dir_image', type=str, default='../../dataset',
+parser.add_argument('--dir_image', type=str, default='images',
                     help='image dataset directory')
-parser.add_argument('--dir_mask', type=str, default='../../dataset',
+parser.add_argument('--dir_mask', type=str, default='mask',
                     help='mask dataset directory')
 parser.add_argument('--data_train', type=str, default='places2',
                     help='dataname used for training')
